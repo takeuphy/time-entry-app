@@ -1,0 +1,22 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model TimeEntry {
+  id          Int      @id @default(autoincrement())
+  clientName  String
+  matterName  String
+  date        String   // YYYY-MM-DD format for easy date filtering
+  startTime   String   // HH:MM format
+  endTime     String   // HH:MM format
+  description String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([date])
+}
