@@ -18,6 +18,61 @@ function currentTimeRounded(): string {
   return `${String(d.getHours()).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
 }
 
+/**
+ * Parse Japanese spoken time expressions into HH:MM format.
+ *   "14時30分" → "14:30"    "午後2時半" → "14:30"
+ *   "午前9時"  → "09:00"    "9時"      → "09:00"
+ */
+function parseJapaneseTime(input: string): string | null {
+  let text = input
+    .replace(/[０-９]/g, (c) =>
+      String.fromCharCode(c.charCodeAt(0) - 0xfee0)
+    )
+    .replace(/\s+/g, "");
+
+  let isPM = false;
+  let isAM = false;
+  if (text.includes("午後")) {
+    isPM = true;
+    text = text.replace(/午後/g, "");
+  }
+  if (text.includes("午前")) {
+    isAM = true;
+    text = text.replace(/午前/g, "");
+  }
+
+  let hours = -1;
+  let minutes = 0;
+  let match;
+
+  // "X時Y分"
+  if ((match = text.match(/(\d{1,2})時(\d{1,2})分/))) {
+    hours = parseInt(match[1]);
+    minutes = parseInt(match[2]);
+  }
+  // "X時半"
+  if (hours === -1 && (match = text.match(/(\d{1,2})時半/))) {
+    hours = parseInt(match[1]);
+    minutes = 30;
+  }
+  // "X時"
+  if (hours === -1 && (match = text.match(/(\d{1,2})時/))) {
+    hours = parseInt(match[1]);
+  }
+  // "HH:MM"
+  if (hours === -1 && (match = text.match(/(\d{1,2}):(\d{2})/))) {
+    hours = parseInt(match[1]);
+    minutes = parseInt(match[2]);
+  }
+
+  if (hours === -1) return null;
+  if (isPM && hours < 12) hours += 12;
+  if (isAM && hours === 12) hours = 0;
+  if (hours < 0 || hours > 23 || minutes < 0 || minutes > 59) return null;
+
+  return `${String(hours).padStart(2, "0")}:${String(minutes).padStart(2, "0")}`;
+}
+
 export function EntryForm({ onEntryAdded }: EntryFormProps) {
   const [clientName, setClientName] = useState("");
   const [matterName, setMatterName] = useState("");
@@ -28,6 +83,11 @@ export function EntryForm({ onEntryAdded }: EntryFormProps) {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState(false);
+
+  const handleTimeVoice = (setter: (v: string) => void) => (text: string) => {
+    const parsed = parseJapaneseTime(text);
+    if (parsed) setter(parsed);
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -128,32 +188,40 @@ export function EntryForm({ onEntryAdded }: EntryFormProps) {
         />
       </div>
 
-      {/* Time range */}
-      <div className="grid grid-cols-2 gap-3">
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
-            開始時刻
-          </label>
+      {/* Start time */}
+      <div>
+        <label className="block text-sm font-medium text-gray-700 mb-1">
+          開始時刻
+        </label>
+        <div className="flex gap-2">
           <input
             type="time"
             value={startTime}
             onChange={(e) => setStartTime(e.target.value)}
             step="360"
-            className="w-full rounded-lg border border-gray-300 px-3 py-2 text-base focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="flex-1 rounded-lg border border-gray-300 px-3 py-2 text-base focus:outline-none focus:ring-2 focus:ring-blue-500"
           />
+          <VoiceInput onResult={handleTimeVoice(setStartTime)} />
         </div>
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
-            終了時刻
-          </label>
+        <p className="text-xs text-gray-400 mt-1">例:「14時30分」「午後2時半」</p>
+      </div>
+
+      {/* End time */}
+      <div>
+        <label className="block text-sm font-medium text-gray-700 mb-1">
+          終了時刻
+        </label>
+        <div className="flex gap-2">
           <input
             type="time"
             value={endTime}
             onChange={(e) => setEndTime(e.target.value)}
             step="360"
-            className="w-full rounded-lg border border-gray-300 px-3 py-2 text-base focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="flex-1 rounded-lg border border-gray-300 px-3 py-2 text-base focus:outline-none focus:ring-2 focus:ring-blue-500"
           />
+          <VoiceInput onResult={handleTimeVoice(setEndTime)} />
         </div>
+        <p className="text-xs text-gray-400 mt-1">例:「16時」「午後4時15分」</p>
       </div>
 
       {/* Description */}

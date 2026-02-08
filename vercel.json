@@ -1,0 +1,9 @@
+{
+  "buildCommand": "prisma generate && prisma db push && next build",
+  "crons": [
+    {
+      "path": "/api/send-daily-report",
+      "schedule": "0 0 * * *"
+    }
+  ]
+}
