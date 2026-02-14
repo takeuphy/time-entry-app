@@ -10,7 +10,7 @@
     "db:push": "prisma db push",
     "db:migrate": "prisma migrate dev",
     "db:studio": "prisma studio",
-    "postinstall": "prisma generate"
+    "postinstall": "DATABASE_URL=\"${DATABASE_URL:-${POSTGRES_URL:-postgresql://placeholder}}\" prisma generate"
   },
   "dependencies": {
     "@prisma/client": "^5.15.0",

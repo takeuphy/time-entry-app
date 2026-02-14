@@ -1,5 +1,5 @@
 {
-  "buildCommand": "prisma generate && prisma db push && next build",
+  "buildCommand": "export DATABASE_URL=\"${DATABASE_URL:-$POSTGRES_URL}\" && prisma generate && prisma db push && next build",
   "crons": [
     {
       "path": "/api/send-daily-report",
