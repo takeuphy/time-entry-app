@@ -18,17 +18,21 @@ function currentTimeRounded(): string {
   return `${String(d.getHours()).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
 }
 
+function normalizeJapaneseNumbers(input: string): string {
+  return input
+    .replace(/[０-９]/g, (c) =>
+      String.fromCharCode(c.charCodeAt(0) - 0xfee0)
+    )
+    .replace(/\s+/g, "");
+}
+
 /**
  * Parse Japanese spoken time expressions into HH:MM format.
  *   "14時30分" → "14:30"    "午後2時半" → "14:30"
  *   "午前9時"  → "09:00"    "9時"      → "09:00"
  */
 function parseJapaneseTime(input: string): string | null {
-  let text = input
-    .replace(/[０-９]/g, (c) =>
-      String.fromCharCode(c.charCodeAt(0) - 0xfee0)
-    )
-    .replace(/\s+/g, "");
+  let text = normalizeJapaneseNumbers(input);
 
   let isPM = false;
   let isAM = false;
@@ -73,6 +77,80 @@ function parseJapaneseTime(input: string): string | null {
   return `${String(hours).padStart(2, "0")}:${String(minutes).padStart(2, "0")}`;
 }
 
+/**
+ * Parse Japanese duration expression into minutes.
+ *   "45分" → 45    "1時間" → 60    "1時間30分" → 90    "1時間半" → 90
+ */
+function parseJapaneseDuration(input: string): number | null {
+  const text = normalizeJapaneseNumbers(input);
+  let match;
+
+  // "X時間Y分"
+  if ((match = text.match(/(\d{1,2})時間(\d{1,2})分/))) {
+    return parseInt(match[1]) * 60 + parseInt(match[2]);
+  }
+  // "X時間半"
+  if ((match = text.match(/(\d{1,2})時間半/))) {
+    return parseInt(match[1]) * 60 + 30;
+  }
+  // "X時間"
+  if ((match = text.match(/(\d{1,2})時間/))) {
+    return parseInt(match[1]) * 60;
+  }
+  // "Y分" (minutes only)
+  if ((match = text.match(/(\d{1,3})分/)) && !text.includes("時")) {
+    return parseInt(match[1]);
+  }
+
+  return null;
+}
+
+interface TimeRange {
+  start: string;
+  end: string;
+}
+
+/**
+ * Parse Japanese time range expressions.
+ *   "14時30分から15時30分"  → { start: "14:30", end: "15:30" }
+ *   "15時から45分"          → { start: "15:00", end: "15:45" }
+ *   "午後2時から1時間30分"  → { start: "14:00", end: "15:30" }
+ *   "9時から1時間"          → { start: "09:00", end: "10:00" }
+ */
+function parseJapaneseTimeRange(input: string): TimeRange | null {
+  const text = normalizeJapaneseNumbers(input);
+
+  const karaIndex = text.indexOf("から");
+  if (karaIndex === -1) return null;
+
+  const startPart = text.substring(0, karaIndex);
+  const endPart = text.substring(karaIndex + 2);
+
+  const start = parseJapaneseTime(startPart);
+  if (!start) return null;
+
+  // Try parsing the end part as a time
+  const endAsTime = parseJapaneseTime(endPart);
+  if (endAsTime) {
+    return { start, end: endAsTime };
+  }
+
+  // Try parsing the end part as a duration
+  const durationMinutes = parseJapaneseDuration(endPart);
+  if (durationMinutes !== null) {
+    const [sh, sm] = start.split(":").map(Number);
+    const totalMinutes = sh * 60 + sm + durationMinutes;
+    const endH = Math.floor(totalMinutes / 60) % 24;
+    const endM = totalMinutes % 60;
+    return {
+      start,
+      end: `${String(endH).padStart(2, "0")}:${String(endM).padStart(2, "0")}`,
+    };
+  }
+
+  return null;
+}
+
 export function EntryForm({ onEntryAdded }: EntryFormProps) {
   const [clientName, setClientName] = useState("");
   const [matterName, setMatterName] = useState("");
@@ -84,9 +162,19 @@ export function EntryForm({ onEntryAdded }: EntryFormProps) {
   const [error, setError] = useState("");
   const [success, setSuccess] = useState(false);
 
-  const handleTimeVoice = (setter: (v: string) => void) => (text: string) => {
-    const parsed = parseJapaneseTime(text);
-    if (parsed) setter(parsed);
+  const handleTimeRangeVoice = (text: string) => {
+    // Try range first: "14時30分から15時30分" or "15時から45分"
+    const range = parseJapaneseTimeRange(text);
+    if (range) {
+      setStartTime(range.start);
+      setEndTime(range.end);
+      return;
+    }
+    // Fallback: single time → set as start time
+    const single = parseJapaneseTime(text);
+    if (single) {
+      setStartTime(single);
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -188,12 +276,12 @@ export function EntryForm({ onEntryAdded }: EntryFormProps) {
         />
       </div>
 
-      {/* Start time */}
+      {/* Time range */}
       <div>
         <label className="block text-sm font-medium text-gray-700 mb-1">
-          開始時刻
+          時間
         </label>
-        <div className="flex gap-2">
+        <div className="flex gap-2 items-center">
           <input
             type="time"
             value={startTime}
@@ -201,17 +289,7 @@ export function EntryForm({ onEntryAdded }: EntryFormProps) {
             step="360"
             className="flex-1 rounded-lg border border-gray-300 px-3 py-2 text-base focus:outline-none focus:ring-2 focus:ring-blue-500"
           />
-          <VoiceInput onResult={handleTimeVoice(setStartTime)} />
-        </div>
-        <p className="text-xs text-gray-400 mt-1">例:「14時30分」「午後2時半」</p>
-      </div>
-
-      {/* End time */}
-      <div>
-        <label className="block text-sm font-medium text-gray-700 mb-1">
-          終了時刻
-        </label>
-        <div className="flex gap-2">
+          <span className="text-gray-400">〜</span>
           <input
             type="time"
             value={endTime}
@@ -219,9 +297,9 @@ export function EntryForm({ onEntryAdded }: EntryFormProps) {
             step="360"
             className="flex-1 rounded-lg border border-gray-300 px-3 py-2 text-base focus:outline-none focus:ring-2 focus:ring-blue-500"
           />
-          <VoiceInput onResult={handleTimeVoice(setEndTime)} />
+          <VoiceInput onResult={handleTimeRangeVoice} />
         </div>
-        <p className="text-xs text-gray-400 mt-1">例:「16時」「午後4時15分」</p>
+        <p className="text-xs text-gray-400 mt-1">例:「14時30分から15時30分」「15時から45分」</p>
       </div>
 
       {/* Description */}
