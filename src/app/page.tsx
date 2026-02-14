@@ -22,6 +22,9 @@ interface TimeEntry {
 export default function Home() {
   const [entries, setEntries] = useState<TimeEntry[]>([]);
   const today = todayString();
+  const [email, setEmail] = useState("");
+  const [sending, setSending] = useState(false);
+  const [sendResult, setSendResult] = useState<{ ok: boolean; message: string } | null>(null);
 
   const fetchEntries = useCallback(async () => {
     try {
@@ -77,6 +80,54 @@ export default function Home() {
         </div>
         <EntryList entries={entries} onDelete={handleDelete} />
       </section>
+
+      {/* Email send */}
+      {entries.length > 0 && (
+        <section className="mt-8 bg-white border border-gray-200 rounded-lg p-4">
+          <h2 className="text-lg font-semibold mb-3">メールで送信</h2>
+          <div className="flex gap-2">
+            <input
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              placeholder="送信先メールアドレス"
+              className="flex-1 rounded-lg border border-gray-300 px-3 py-2 text-base focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+            <button
+              onClick={async () => {
+                if (!email) return;
+                setSending(true);
+                setSendResult(null);
+                try {
+                  const res = await fetch(
+                    `/api/send-daily-report?date=${today}&email=${encodeURIComponent(email)}`,
+                    { method: "POST" }
+                  );
+                  const data = await res.json();
+                  if (res.ok) {
+                    setSendResult({ ok: true, message: data.message });
+                  } else {
+                    setSendResult({ ok: false, message: data.error });
+                  }
+                } catch {
+                  setSendResult({ ok: false, message: "送信に失敗しました。" });
+                } finally {
+                  setSending(false);
+                }
+              }}
+              disabled={sending || !email}
+              className="bg-green-600 text-white font-medium px-4 py-2 rounded-lg text-sm hover:bg-green-700 active:bg-green-800 disabled:opacity-50 transition-colors whitespace-nowrap"
+            >
+              {sending ? "送信中..." : "送信"}
+            </button>
+          </div>
+          {sendResult && (
+            <p className={`mt-2 text-sm rounded-lg px-3 py-2 ${sendResult.ok ? "text-green-600 bg-green-50" : "text-red-600 bg-red-50"}`}>
+              {sendResult.message}
+            </p>
+          )}
+        </section>
+      )}
     </div>
   );
 }

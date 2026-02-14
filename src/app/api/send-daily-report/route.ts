@@ -14,13 +14,14 @@ export async function POST(request: NextRequest) {
   try {
     const date =
       request.nextUrl.searchParams.get("date") || yesterdayString();
+    const email = request.nextUrl.searchParams.get("email") || undefined;
 
     const entries = await prisma.timeEntry.findMany({
       where: { date },
       orderBy: { startTime: "asc" },
     });
 
-    await sendDailyReport(entries, date);
+    await sendDailyReport(entries, date, email);
 
     return NextResponse.json({
       ok: true,

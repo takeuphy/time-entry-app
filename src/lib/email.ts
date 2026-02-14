@@ -30,14 +30,15 @@ function formatDecimalHours(minutes: number): string {
 
 export async function sendDailyReport(
   entries: TimeEntry[],
-  reportDate: string
+  reportDate: string,
+  toOverride?: string
 ) {
   const host = process.env.SMTP_HOST;
   const port = Number(process.env.SMTP_PORT || "587");
   const user = process.env.SMTP_USER;
   const pass = process.env.SMTP_PASS;
   const from = process.env.SMTP_FROM;
-  const to = process.env.ASSISTANT_EMAIL;
+  const to = toOverride || process.env.ASSISTANT_EMAIL;
 
   if (!host || !user || !pass || !from || !to) {
     throw new Error(
