@@ -105,20 +105,48 @@ function parseJapaneseDuration(input: string): number | null {
   return null;
 }
 
+/**
+ * Parse Japanese date expression into YYYY-MM-DD format.
+ *   "2月15日" → "2026-02-15"    "12月3日" → "2026-12-03"
+ * Uses the current year by default.
+ */
+function parseJapaneseDate(input: string): string | null {
+  const text = normalizeJapaneseNumbers(input);
+  const match = text.match(/(\d{1,2})月(\d{1,2})日/);
+  if (!match) return null;
+
+  const month = parseInt(match[1]);
+  const day = parseInt(match[2]);
+  if (month < 1 || month > 12 || day < 1 || day > 31) return null;
+
+  const year = new Date().getFullYear();
+  return `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+}
+
 interface TimeRange {
+  date?: string;
   start: string;
   end: string;
 }
 
 /**
- * Parse Japanese time range expressions.
- *   "14時30分から15時30分"  → { start: "14:30", end: "15:30" }
- *   "15時から45分"          → { start: "15:00", end: "15:45" }
- *   "午後2時から1時間30分"  → { start: "14:00", end: "15:30" }
- *   "9時から1時間"          → { start: "09:00", end: "10:00" }
+ * Parse Japanese date + time range expressions.
+ *   "2月15日14時30分から15時30分"  → { date: "2026-02-15", start: "14:30", end: "15:30" }
+ *   "14時30分から15時30分"          → { start: "14:30", end: "15:30" }
+ *   "15時から45分"                  → { start: "15:00", end: "15:45" }
+ *   "3月1日15時から1時間"           → { date: "2026-03-01", start: "15:00", end: "16:00" }
  */
 function parseJapaneseTimeRange(input: string): TimeRange | null {
-  const text = normalizeJapaneseNumbers(input);
+  let text = normalizeJapaneseNumbers(input);
+
+  // Extract date if present (e.g., "2月15日")
+  let date: string | undefined;
+  const dateMatch = text.match(/(\d{1,2})月(\d{1,2})日/);
+  if (dateMatch) {
+    date = parseJapaneseDate(dateMatch[0]) ?? undefined;
+    // Remove date part and optional の connector
+    text = text.replace(/\d{1,2}月\d{1,2}日の?/, "");
+  }
 
   const karaIndex = text.indexOf("から");
   if (karaIndex === -1) return null;
@@ -132,7 +160,7 @@ function parseJapaneseTimeRange(input: string): TimeRange | null {
   // Try parsing the end part as a time
   const endAsTime = parseJapaneseTime(endPart);
   if (endAsTime) {
-    return { start, end: endAsTime };
+    return { date, start, end: endAsTime };
   }
 
   // Try parsing the end part as a duration
@@ -143,6 +171,7 @@ function parseJapaneseTimeRange(input: string): TimeRange | null {
     const endH = Math.floor(totalMinutes / 60) % 24;
     const endM = totalMinutes % 60;
     return {
+      date,
       start,
       end: `${String(endH).padStart(2, "0")}:${String(endM).padStart(2, "0")}`,
     };
@@ -162,12 +191,19 @@ export function EntryForm({ onEntryAdded }: EntryFormProps) {
   const [error, setError] = useState("");
   const [success, setSuccess] = useState(false);
 
-  const handleTimeRangeVoice = (text: string) => {
-    // Try range first: "14時30分から15時30分" or "15時から45分"
+  const handleDateTimeVoice = (text: string) => {
+    // Try range first: "2月15日14時30分から15時30分" or "15時から45分"
     const range = parseJapaneseTimeRange(text);
     if (range) {
+      if (range.date) setDate(range.date);
       setStartTime(range.start);
       setEndTime(range.end);
+      return;
+    }
+    // Try date only: "2月15日"
+    const dateOnly = parseJapaneseDate(text);
+    if (dateOnly) {
+      setDate(dateOnly);
       return;
     }
     // Fallback: single time → set as start time
@@ -263,24 +299,20 @@ export function EntryForm({ onEntryAdded }: EntryFormProps) {
         </div>
       </div>
 
-      {/* Date */}
+      {/* Date + Time range */}
       <div>
         <label className="block text-sm font-medium text-gray-700 mb-1">
-          日付
+          日時
         </label>
-        <input
-          type="date"
-          value={date}
-          onChange={(e) => setDate(e.target.value)}
-          className="w-full rounded-lg border border-gray-300 px-3 py-2 text-base focus:outline-none focus:ring-2 focus:ring-blue-500"
-        />
-      </div>
-
-      {/* Time range */}
-      <div>
-        <label className="block text-sm font-medium text-gray-700 mb-1">
-          時間
-        </label>
+        <div className="flex gap-2 items-center mb-2">
+          <input
+            type="date"
+            value={date}
+            onChange={(e) => setDate(e.target.value)}
+            className="flex-1 rounded-lg border border-gray-300 px-3 py-2 text-base focus:outline-none focus:ring-2 focus:ring-blue-500"
+          />
+          <VoiceInput onResult={handleDateTimeVoice} />
+        </div>
         <div className="flex gap-2 items-center">
           <input
             type="time"
@@ -297,9 +329,8 @@ export function EntryForm({ onEntryAdded }: EntryFormProps) {
             step="360"
             className="flex-1 rounded-lg border border-gray-300 px-3 py-2 text-base focus:outline-none focus:ring-2 focus:ring-blue-500"
           />
-          <VoiceInput onResult={handleTimeRangeVoice} />
         </div>
-        <p className="text-xs text-gray-400 mt-1">例:「14時30分から15時30分」「15時から45分」</p>
+        <p className="text-xs text-gray-400 mt-1">例:「2月15日14時30分から15時30分」「15時から45分」</p>
       </div>
 
       {/* Description */}
