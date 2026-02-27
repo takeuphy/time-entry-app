@@ -2,6 +2,7 @@
 
 import { Suspense, useState, useEffect, useCallback } from "react";
 import { EntryList } from "@/components/EntryList";
+import { EmailSendSection } from "@/components/EmailSendSection";
 import { useSearchParams } from "next/navigation";
 
 function todayString(): string {
@@ -92,7 +93,10 @@ function EntriesContent() {
       {loading ? (
         <p className="text-gray-500 text-center py-8">読み込み中...</p>
       ) : (
-        <EntryList entries={entries} onDelete={handleDelete} />
+        <>
+          <EntryList entries={entries} onDelete={handleDelete} />
+          {entries.length > 0 && <EmailSendSection date={date} />}
+        </>
       )}
     </>
   );
