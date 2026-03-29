@@ -19,4 +19,10 @@ model TimeEntry {
   updatedAt   DateTime @updatedAt
 
   @@index([date])
+  @@index([createdAt])
+}
+
+model Setting {
+  key   String @id
+  value String
 }

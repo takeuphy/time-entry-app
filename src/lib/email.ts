@@ -112,3 +112,98 @@ export async function sendDailyReport(
     html,
   });
 }
+
+export async function sendAutoReport(
+  entries: TimeEntry[],
+  windowLabel: string,
+  to: string
+) {
+  const host = process.env.SMTP_HOST;
+  const port = Number(process.env.SMTP_PORT || "587");
+  const user = process.env.SMTP_USER;
+  const pass = process.env.SMTP_PASS;
+  const from = process.env.SMTP_FROM;
+
+  if (!host || !user || !pass || !from) {
+    throw new Error(
+      "メール設定が不完全です。環境変数を確認してください。(SMTP_HOST, SMTP_USER, SMTP_PASS, SMTP_FROM)"
+    );
+  }
+
+  const transporter = nodemailer.createTransport({
+    host,
+    port,
+    secure: port === 465,
+    auth: { user, pass },
+  });
+
+  // Group entries by date
+  const grouped = new Map<string, TimeEntry[]>();
+  for (const entry of entries) {
+    const list = grouped.get(entry.date) || [];
+    list.push(entry);
+    grouped.set(entry.date, list);
+  }
+
+  const appUrl = process.env.APP_URL || "http://localhost:3000";
+  let totalMinutesAll = 0;
+
+  let dateSections = "";
+  for (const [date, dateEntries] of grouped) {
+    let dateTotal = 0;
+    const rows = dateEntries
+      .map((e) => {
+        const dur = calcDurationMinutes(e.startTime, e.endTime);
+        dateTotal += dur;
+        totalMinutesAll += dur;
+        return `
+        <tr>
+          <td style="border:1px solid #ddd;padding:8px;">${e.clientName}</td>
+          <td style="border:1px solid #ddd;padding:8px;">${e.matterName}</td>
+          <td style="border:1px solid #ddd;padding:8px;white-space:nowrap;">${e.startTime} - ${e.endTime}</td>
+          <td style="border:1px solid #ddd;padding:8px;text-align:right;">${formatDecimalHours(dur)}h</td>
+          <td style="border:1px solid #ddd;padding:8px;">${e.description}</td>
+        </tr>`;
+      })
+      .join("");
+
+    dateSections += `
+      <h3 style="margin-top:20px;margin-bottom:8px;color:#333;">${date}（小計: ${formatDecimalHours(dateTotal)}h）
+        <a href="${appUrl}/entries?date=${date}" style="font-size:13px;font-weight:normal;margin-left:8px;">確認</a>
+      </h3>
+      <table style="border-collapse:collapse;width:100%;font-size:14px;">
+        <thead>
+          <tr style="background:#f5f5f5;">
+            <th style="border:1px solid #ddd;padding:8px;text-align:left;">クライアント</th>
+            <th style="border:1px solid #ddd;padding:8px;text-align:left;">案件</th>
+            <th style="border:1px solid #ddd;padding:8px;text-align:left;">時間</th>
+            <th style="border:1px solid #ddd;padding:8px;text-align:right;">時間数</th>
+            <th style="border:1px solid #ddd;padding:8px;text-align:left;">作業内容</th>
+          </tr>
+        </thead>
+        <tbody>${rows}</tbody>
+      </table>`;
+  }
+
+  const today = new Date(Date.now() + 9 * 60 * 60 * 1000)
+    .toISOString()
+    .slice(0, 10);
+
+  const html = `
+    <div style="font-family:sans-serif;max-width:800px;margin:0 auto;">
+      <h2>タイムエントリー自動レポート</h2>
+      <p style="color:#666;font-size:13px;">入力期間: ${windowLabel}　／　合計: ${formatDecimalHours(totalMinutesAll)}h (${formatDuration(totalMinutesAll)}) ／ ${entries.length}件</p>
+      ${dateSections}
+      <p style="margin-top:20px;font-size:13px;color:#666;">
+        <a href="${appUrl}/entries?date=${today}">アプリで確認する</a>
+      </p>
+    </div>
+  `;
+
+  await transporter.sendMail({
+    from,
+    to,
+    subject: `【タイムエントリー自動レポート】${windowLabel}（${entries.length}件）`,
+    html,
+  });
+}

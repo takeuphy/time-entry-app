@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from "react";
 import { EntryForm } from "@/components/EntryForm";
 import { EntryList } from "@/components/EntryList";
 import { EmailSendSection } from "@/components/EmailSendSection";
+import { AutoSendSettings } from "@/components/AutoSendSettings";
 
 function todayString(): string {
   const d = new Date();
@@ -81,6 +82,9 @@ export default function Home() {
 
       {/* Email send */}
       {entries.length > 0 && <EmailSendSection date={today} />}
+
+      {/* Auto send settings */}
+      <AutoSendSettings />
     </div>
   );
 }
