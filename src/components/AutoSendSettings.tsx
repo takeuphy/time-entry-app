@@ -2,11 +2,19 @@
 
 import { useState, useEffect } from "react";
 
-const SETTING_KEY = "auto_send_email";
+const EMAIL_KEY = "auto_send_email";
+const TZ_KEY = "auto_send_timezone";
+
+const TIMEZONE_OPTIONS = [
+  { value: "America/Los_Angeles", label: "カリフォルニア時間（太平洋時間）" },
+  { value: "Asia/Tokyo", label: "日本時間（JST）" },
+];
 
 export function AutoSendSettings() {
   const [email, setEmail] = useState("");
+  const [timezone, setTimezone] = useState("America/Los_Angeles");
   const [savedEmail, setSavedEmail] = useState<string | null>(null);
+  const [savedTimezone, setSavedTimezone] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState<{
@@ -16,12 +24,18 @@ export function AutoSendSettings() {
   const [isOpen, setIsOpen] = useState(false);
 
   useEffect(() => {
-    fetch(`/api/settings?key=${SETTING_KEY}`)
-      .then((res) => res.json())
-      .then((data) => {
-        if (data.value) {
-          setSavedEmail(data.value);
-          setEmail(data.value);
+    Promise.all([
+      fetch(`/api/settings?key=${EMAIL_KEY}`).then((r) => r.json()),
+      fetch(`/api/settings?key=${TZ_KEY}`).then((r) => r.json()),
+    ])
+      .then(([emailData, tzData]) => {
+        if (emailData.value) {
+          setSavedEmail(emailData.value);
+          setEmail(emailData.value);
+        }
+        if (tzData.value) {
+          setSavedTimezone(tzData.value);
+          setTimezone(tzData.value);
         }
       })
       .catch(() => {})
@@ -33,14 +47,27 @@ export function AutoSendSettings() {
     setSaving(true);
     setMessage(null);
     try {
-      const res = await fetch("/api/settings", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ key: SETTING_KEY, value: email }),
-      });
-      if (res.ok) {
+      const [emailRes, tzRes] = await Promise.all([
+        fetch("/api/settings", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ key: EMAIL_KEY, value: email }),
+        }),
+        fetch("/api/settings", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ key: TZ_KEY, value: timezone }),
+        }),
+      ]);
+      if (emailRes.ok && tzRes.ok) {
         setSavedEmail(email);
-        setMessage({ ok: true, text: "自動送信を設定しました。" });
+        setSavedTimezone(timezone);
+        const tzLabel =
+          TIMEZONE_OPTIONS.find((o) => o.value === timezone)?.label ?? timezone;
+        setMessage({
+          ok: true,
+          text: `自動送信を設定しました。（毎朝6時 ${tzLabel}）`,
+        });
       } else {
         setMessage({ ok: false, text: "保存に失敗しました。" });
       }
@@ -56,8 +83,12 @@ export function AutoSendSettings() {
     setSaving(true);
     setMessage(null);
     try {
-      await fetch(`/api/settings?key=${SETTING_KEY}`, { method: "DELETE" });
+      await Promise.all([
+        fetch(`/api/settings?key=${EMAIL_KEY}`, { method: "DELETE" }),
+        fetch(`/api/settings?key=${TZ_KEY}`, { method: "DELETE" }),
+      ]);
       setSavedEmail(null);
+      setSavedTimezone(null);
       setEmail("");
       setMessage({ ok: true, text: "自動送信を無効にしました。" });
     } catch {
@@ -68,6 +99,10 @@ export function AutoSendSettings() {
   };
 
   if (loading) return null;
+
+  const currentTzLabel =
+    TIMEZONE_OPTIONS.find((o) => o.value === (savedTimezone || timezone))
+      ?.label ?? "";
 
   return (
     <section className="mt-8 bg-white border border-gray-200 rounded-lg">
@@ -93,9 +128,12 @@ export function AutoSendSettings() {
           </p>
 
           {savedEmail && (
-            <div className="mb-3 bg-green-50 rounded-lg px-3 py-2">
+            <div className="mb-3 bg-green-50 rounded-lg px-3 py-2 space-y-1">
               <p className="text-sm text-green-800">
                 送信先: <strong>{savedEmail}</strong>
+              </p>
+              <p className="text-sm text-green-800">
+                送信時刻: 毎朝6時（{currentTzLabel}）
               </p>
             </div>
           )}
@@ -108,6 +146,21 @@ export function AutoSendSettings() {
             className="w-full rounded-lg border border-gray-300 px-3 py-2 text-base focus:outline-none focus:ring-2 focus:ring-blue-500 mb-3"
           />
 
+          <label className="block text-sm font-medium text-gray-700 mb-1">
+            タイムゾーン
+          </label>
+          <select
+            value={timezone}
+            onChange={(e) => setTimezone(e.target.value)}
+            className="w-full rounded-lg border border-gray-300 px-3 py-2 text-base focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white mb-3"
+          >
+            {TIMEZONE_OPTIONS.map((opt) => (
+              <option key={opt.value} value={opt.value}>
+                {opt.label}
+              </option>
+            ))}
+          </select>
+
           <div className="flex gap-2">
             <button
               onClick={handleSave}
@@ -117,7 +170,7 @@ export function AutoSendSettings() {
               {saving
                 ? "保存中..."
                 : savedEmail
-                  ? "送信先を変更"
+                  ? "設定を変更"
                   : "自動送信を有効にする"}
             </button>
             {savedEmail && (
