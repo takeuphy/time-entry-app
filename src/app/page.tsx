@@ -57,8 +57,18 @@ export default function Home() {
     <div className="max-w-lg mx-auto px-4 py-6">
       {/* Header */}
       <header className="mb-6">
-        <h1 className="text-2xl font-bold">タイムエントリー</h1>
-        <p className="text-sm text-gray-500 mt-1">{today}</p>
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-2xl font-bold">タイムエントリー</h1>
+            <p className="text-sm text-gray-500 mt-1">{today}</p>
+          </div>
+          <a
+            href="/case-codes"
+            className="text-xs text-blue-600 hover:text-blue-800 bg-blue-50 px-2 py-1 rounded"
+          >
+            ケースコード管理
+          </a>
+        </div>
       </header>
 
       {/* Entry form */}

@@ -180,9 +180,18 @@ function parseJapaneseTimeRange(input: string): TimeRange | null {
   return null;
 }
 
+interface CaseCodeSuggestion {
+  id: number;
+  code: string;
+  clientName: string;
+  matterName: string;
+  score: number;
+}
+
 export function EntryForm({ onEntryAdded }: EntryFormProps) {
   const [clientName, setClientName] = useState("");
   const [matterName, setMatterName] = useState("");
+  const [caseCode, setCaseCode] = useState("");
   const [date, setDate] = useState(todayString);
   const [startTime, setStartTime] = useState(currentTimeRounded);
   const [endTime, setEndTime] = useState("");
@@ -190,6 +199,45 @@ export function EntryForm({ onEntryAdded }: EntryFormProps) {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState(false);
+  const [suggestions, setSuggestions] = useState<CaseCodeSuggestion[]>([]);
+  const [searching, setSearching] = useState(false);
+
+  const searchCaseCodes = async (query: string) => {
+    if (!query.trim()) {
+      setSuggestions([]);
+      return;
+    }
+    setSearching(true);
+    try {
+      const res = await fetch(
+        `/api/case-codes/search?q=${encodeURIComponent(query)}`
+      );
+      if (res.ok) {
+        setSuggestions(await res.json());
+      }
+    } catch {
+      // Network error
+    } finally {
+      setSearching(false);
+    }
+  };
+
+  const handleClientVoice = (text: string) => {
+    setClientName(text);
+    searchCaseCodes(text);
+  };
+
+  const handleMatterVoice = (text: string) => {
+    setMatterName(text);
+    searchCaseCodes(text);
+  };
+
+  const selectCaseCode = (suggestion: CaseCodeSuggestion) => {
+    setClientName(suggestion.clientName);
+    setMatterName(suggestion.matterName);
+    setCaseCode(suggestion.code);
+    setSuggestions([]);
+  };
 
   const handleDateTimeVoice = (text: string) => {
     // Try range first: "2月15日14時30分から15時30分" or "15時から45分"
@@ -250,6 +298,7 @@ export function EntryForm({ onEntryAdded }: EntryFormProps) {
 
       setClientName("");
       setMatterName("");
+      setCaseCode("");
       setStartTime(currentTimeRounded());
       setEndTime("");
       setDescription("");
@@ -265,6 +314,25 @@ export function EntryForm({ onEntryAdded }: EntryFormProps) {
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
+      {/* Case code display */}
+      {caseCode && (
+        <div className="flex items-center gap-2 bg-blue-50 rounded-lg px-3 py-2">
+          <span className="text-sm text-blue-700">ケースコード:</span>
+          <span className="font-mono font-bold text-blue-800">{caseCode}</span>
+          <button
+            type="button"
+            onClick={() => {
+              setCaseCode("");
+              setClientName("");
+              setMatterName("");
+            }}
+            className="ml-auto text-xs text-blue-500 hover:text-blue-700"
+          >
+            解除
+          </button>
+        </div>
+      )}
+
       {/* Client name */}
       <div>
         <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -278,7 +346,7 @@ export function EntryForm({ onEntryAdded }: EntryFormProps) {
             placeholder="例: ABC株式会社"
             className="flex-1 rounded-lg border border-gray-300 px-3 py-2 text-base focus:outline-none focus:ring-2 focus:ring-blue-500"
           />
-          <VoiceInput onResult={setClientName} />
+          <VoiceInput onResult={handleClientVoice} />
         </div>
       </div>
 
@@ -295,9 +363,42 @@ export function EntryForm({ onEntryAdded }: EntryFormProps) {
             placeholder="例: M&A案件"
             className="flex-1 rounded-lg border border-gray-300 px-3 py-2 text-base focus:outline-none focus:ring-2 focus:ring-blue-500"
           />
-          <VoiceInput onResult={setMatterName} />
+          <VoiceInput onResult={handleMatterVoice} />
         </div>
       </div>
+
+      {/* Case code suggestions */}
+      {searching && (
+        <p className="text-xs text-gray-400">ケースコードを検索中...</p>
+      )}
+      {suggestions.length > 0 && (
+        <div className="bg-white border border-blue-200 rounded-lg overflow-hidden">
+          <p className="text-xs text-gray-500 px-3 py-1.5 bg-blue-50 border-b border-blue-200">
+            候補のケースコード（タップして選択）
+          </p>
+          {suggestions.map((s) => (
+            <button
+              key={s.id}
+              type="button"
+              onClick={() => selectCaseCode(s)}
+              className="w-full text-left px-3 py-2 hover:bg-blue-50 active:bg-blue-100 border-b border-gray-100 last:border-b-0 transition-colors"
+            >
+              <span className="font-mono font-bold text-blue-700 text-sm">
+                {s.code}
+              </span>
+              <span className="text-sm text-gray-800 ml-2">{s.clientName}</span>
+              <span className="text-sm text-gray-500 ml-1">/ {s.matterName}</span>
+            </button>
+          ))}
+          <button
+            type="button"
+            onClick={() => setSuggestions([])}
+            className="w-full text-center text-xs text-gray-400 py-1.5 hover:bg-gray-50"
+          >
+            候補を閉じる
+          </button>
+        </div>
+      )}
 
       {/* Date + Time range */}
       <div>

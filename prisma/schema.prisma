@@ -26,3 +26,11 @@ model Setting {
   key   String @id
   value String
 }
+
+model CaseCode {
+  id         Int      @id @default(autoincrement())
+  code       String   @unique
+  clientName String
+  matterName String
+  createdAt  DateTime @default(now())
+}
