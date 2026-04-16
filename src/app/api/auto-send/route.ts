@@ -1,12 +1,14 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { sendAutoReport } from "@/lib/email";
 
 // POST /api/auto-send
-// Called by cron. Checks timezone setting and only sends if current hour
-// in the configured timezone is 6 (to avoid duplicate sends from multiple cron entries).
-export async function POST() {
+// Called by cron (or manually for testing with ?force=true).
+// Sends entries created in the last 24 hours.
+export async function POST(request: NextRequest) {
   try {
+    const force = request.nextUrl.searchParams.get("force") === "true";
+
     // Read settings
     const [emailSetting, tzSetting] = await Promise.all([
       prisma.setting.findUnique({ where: { key: "auto_send_email" } }),
@@ -14,21 +16,29 @@ export async function POST() {
     ]);
 
     if (!emailSetting?.value) {
-      return NextResponse.json({
-        ok: false,
-        message: "自動送信先メールアドレスが設定されていません。",
-      });
+      return NextResponse.json(
+        {
+          ok: false,
+          error:
+            "自動送信先メールアドレスが設定されていません。アプリで設定してください。",
+        },
+        { status: 400 }
+      );
     }
 
     const timezone = tzSetting?.value || "America/Los_Angeles";
 
-    // Check if current hour in the configured timezone is 6
-    const currentHour = getCurrentHourInTimezone(timezone);
-    if (currentHour < 5 || currentHour > 7) {
-      return NextResponse.json({
-        ok: true,
-        message: `現在 ${timezone} で ${currentHour}時のため、送信をスキップしました。`,
-      });
+    // Check if current hour in the configured timezone is ~6AM
+    // Skip this check when force=true (for manual testing)
+    if (!force) {
+      const currentHour = getCurrentHourInTimezone(timezone);
+      if (currentHour < 5 || currentHour > 7) {
+        return NextResponse.json({
+          ok: true,
+          skipped: true,
+          message: `現在 ${timezone} で ${currentHour}時のため、送信をスキップしました。`,
+        });
+      }
     }
 
     // Query entries created in the last 24 hours
@@ -48,7 +58,8 @@ export async function POST() {
     if (entries.length === 0) {
       return NextResponse.json({
         ok: true,
-        message: "送信対象のエントリーがありません。",
+        message:
+          "過去24時間に入力されたエントリーがないため、送信するものがありません。",
       });
     }
 

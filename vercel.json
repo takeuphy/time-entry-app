@@ -1,13 +1,3 @@
 {
-  "buildCommand": "export DATABASE_URL=\"${DATABASE_URL:-$POSTGRES_URL}\" && prisma generate && prisma db push && next build",
-  "crons": [
-    {
-      "path": "/api/auto-send",
-      "schedule": "0 14 * * *"
-    },
-    {
-      "path": "/api/auto-send",
-      "schedule": "0 21 * * *"
-    }
-  ]
+  "buildCommand": "export DATABASE_URL=\"${DATABASE_URL:-$POSTGRES_URL}\" && prisma generate && prisma db push && next build"
 }

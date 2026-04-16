@@ -17,13 +17,22 @@ export function AutoSendSettings() {
   const [savedTimezone, setSavedTimezone] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [testing, setTesting] = useState(false);
+  const [appUrl, setAppUrl] = useState("");
   const [message, setMessage] = useState<{
+    ok: boolean;
+    text: string;
+  } | null>(null);
+  const [testResult, setTestResult] = useState<{
     ok: boolean;
     text: string;
   } | null>(null);
   const [isOpen, setIsOpen] = useState(false);
 
   useEffect(() => {
+    if (typeof window !== "undefined") {
+      setAppUrl(window.location.origin);
+    }
     Promise.all([
       fetch(`/api/settings?key=${EMAIL_KEY}`).then((r) => r.json()),
       fetch(`/api/settings?key=${TZ_KEY}`).then((r) => r.json()),
@@ -66,7 +75,7 @@ export function AutoSendSettings() {
           TIMEZONE_OPTIONS.find((o) => o.value === timezone)?.label ?? timezone;
         setMessage({
           ok: true,
-          text: `自動送信を設定しました。（毎朝6時 ${tzLabel}）`,
+          text: `保存しました。（毎朝6時 ${tzLabel}）`,
         });
       } else {
         setMessage({ ok: false, text: "保存に失敗しました。" });
@@ -98,11 +107,40 @@ export function AutoSendSettings() {
     }
   };
 
+  const handleTest = async () => {
+    setTesting(true);
+    setTestResult(null);
+    try {
+      const res = await fetch("/api/auto-send?force=true", { method: "POST" });
+      const data = await res.json();
+      if (res.ok) {
+        setTestResult({
+          ok: true,
+          text: data.message || "テスト送信が成功しました。",
+        });
+      } else {
+        setTestResult({
+          ok: false,
+          text: data.error || "テスト送信に失敗しました。",
+        });
+      }
+    } catch {
+      setTestResult({ ok: false, text: "テスト送信に失敗しました。" });
+    } finally {
+      setTesting(false);
+    }
+  };
+
   if (loading) return null;
 
   const currentTzLabel =
     TIMEZONE_OPTIONS.find((o) => o.value === (savedTimezone || timezone))
       ?.label ?? "";
+  const cronTimezoneName =
+    savedTimezone === "Asia/Tokyo"
+      ? "Asia/Tokyo"
+      : "America/Los_Angeles";
+  const autoSendUrl = appUrl ? `${appUrl}/api/auto-send` : "";
 
   return (
     <section className="mt-8 bg-white border border-gray-200 rounded-lg">
@@ -192,9 +230,75 @@ export function AutoSendSettings() {
             </p>
           )}
 
-          <p className="text-xs text-gray-400 mt-3">
-            ※ 外部cronサービス（cron-job.org等）の設定が別途必要です
-          </p>
+          {/* Test send section */}
+          {savedEmail && (
+            <div className="mt-4 pt-4 border-t border-gray-100">
+              <h3 className="text-sm font-semibold mb-2">動作確認</h3>
+              <p className="text-xs text-gray-500 mb-2">
+                下のボタンで、すぐにテスト送信できます。メールが届けば自動送信の設定は正しく動作しています。
+              </p>
+              <button
+                onClick={handleTest}
+                disabled={testing}
+                className="w-full bg-purple-600 text-white font-medium py-2 rounded-lg text-sm hover:bg-purple-700 disabled:opacity-50 transition-colors"
+              >
+                {testing ? "送信中..." : "今すぐテスト送信"}
+              </button>
+              {testResult && (
+                <p
+                  className={`mt-2 text-sm rounded-lg px-3 py-2 ${testResult.ok ? "text-green-600 bg-green-50" : "text-red-600 bg-red-50"}`}
+                >
+                  {testResult.text}
+                </p>
+              )}
+            </div>
+          )}
+
+          {/* Cron setup instructions */}
+          {savedEmail && (
+            <div className="mt-4 pt-4 border-t border-gray-100">
+              <h3 className="text-sm font-semibold mb-2">
+                毎朝6時の自動送信を有効にする
+              </h3>
+              <p className="text-xs text-gray-500 mb-2">
+                テスト送信が成功したら、無料サービス <strong>cron-job.org</strong>{" "}
+                で以下の通り設定してください。
+              </p>
+              <ol className="text-xs text-gray-700 space-y-1 list-decimal pl-4 mb-2">
+                <li>
+                  <a
+                    href="https://cron-job.org"
+                    target="_blank"
+                    rel="noreferrer"
+                    className="text-blue-600 underline"
+                  >
+                    cron-job.org
+                  </a>{" "}
+                  でアカウント作成（無料）
+                </li>
+                <li>「CREATE CRONJOB」をクリック</li>
+                <li>以下を入力して保存：</li>
+              </ol>
+              <div className="bg-gray-50 rounded-lg p-3 text-xs space-y-2 font-mono">
+                <div>
+                  <div className="text-gray-500 font-sans">URL:</div>
+                  <div className="break-all select-all">{autoSendUrl}</div>
+                </div>
+                <div>
+                  <div className="text-gray-500 font-sans">Schedule:</div>
+                  <div>Every day at 06:00</div>
+                </div>
+                <div>
+                  <div className="text-gray-500 font-sans">Timezone:</div>
+                  <div>{cronTimezoneName}</div>
+                </div>
+                <div>
+                  <div className="text-gray-500 font-sans">Request method:</div>
+                  <div>POST</div>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       )}
     </section>
