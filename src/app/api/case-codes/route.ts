@@ -12,13 +12,15 @@ export async function GET() {
 // POST /api/case-codes — create a new case code
 export async function POST(request: NextRequest) {
   try {
-    const { code, clientName, matterName } = await request.json();
+    const { code, clientCode, clientName, matterName } = await request.json();
     if (!code || !clientName || !matterName) {
       return NextResponse.json(
         { error: "コード、クライアント名、案件名はすべて必須です。" },
         { status: 400 }
       );
     }
+
+    const derivedClientCode = clientCode || code.substring(0, 5);
 
     const existing = await prisma.caseCode.findUnique({ where: { code } });
     if (existing) {
@@ -29,7 +31,7 @@ export async function POST(request: NextRequest) {
     }
 
     const caseCode = await prisma.caseCode.create({
-      data: { code, clientName, matterName },
+      data: { code, clientCode: derivedClientCode, clientName, matterName },
     });
     return NextResponse.json(caseCode, { status: 201 });
   } catch {

@@ -183,6 +183,7 @@ function parseJapaneseTimeRange(input: string): TimeRange | null {
 interface CaseCodeSuggestion {
   id: number;
   code: string;
+  clientCode: string;
   clientName: string;
   matterName: string;
   score: number;
@@ -317,7 +318,7 @@ export function EntryForm({ onEntryAdded }: EntryFormProps) {
       {/* Case code display */}
       {caseCode && (
         <div className="flex items-center gap-2 bg-blue-50 rounded-lg px-3 py-2">
-          <span className="text-sm text-blue-700">ケースコード:</span>
+          <span className="text-sm text-blue-700">マターコード:</span>
           <span className="font-mono font-bold text-blue-800">{caseCode}</span>
           <button
             type="button"
@@ -369,12 +370,12 @@ export function EntryForm({ onEntryAdded }: EntryFormProps) {
 
       {/* Case code suggestions */}
       {searching && (
-        <p className="text-xs text-gray-400">ケースコードを検索中...</p>
+        <p className="text-xs text-gray-400">マターコードを検索中...</p>
       )}
       {suggestions.length > 0 && (
         <div className="bg-white border border-blue-200 rounded-lg overflow-hidden">
           <p className="text-xs text-gray-500 px-3 py-1.5 bg-blue-50 border-b border-blue-200">
-            候補のケースコード（タップして選択）
+            候補のマターコード（タップして選択）
           </p>
           {suggestions.map((s) => (
             <button
@@ -383,11 +384,18 @@ export function EntryForm({ onEntryAdded }: EntryFormProps) {
               onClick={() => selectCaseCode(s)}
               className="w-full text-left px-3 py-2 hover:bg-blue-50 active:bg-blue-100 border-b border-gray-100 last:border-b-0 transition-colors"
             >
-              <span className="font-mono font-bold text-blue-700 text-sm">
-                {s.code}
-              </span>
-              <span className="text-sm text-gray-800 ml-2">{s.clientName}</span>
-              <span className="text-sm text-gray-500 ml-1">/ {s.matterName}</span>
+              <div className="flex items-center gap-1.5">
+                <span className="font-mono font-bold text-blue-700 text-xs">
+                  {s.code}
+                </span>
+                {s.clientCode && (
+                  <span className="font-mono text-gray-400 text-xs">
+                    ({s.clientCode})
+                  </span>
+                )}
+              </div>
+              <div className="text-sm text-gray-800">{s.clientName}</div>
+              <div className="text-xs text-gray-500 truncate">{s.matterName}</div>
             </button>
           ))}
           <button

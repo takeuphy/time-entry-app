@@ -12,10 +12,18 @@ export async function GET(request: NextRequest) {
 
   const scored = allCodes
     .map((cc) => {
-      const clientScore = fuzzyScore(query, cc.clientName);
-      const matterScore = fuzzyScore(query, cc.matterName);
+      const clientNameScore = fuzzyScore(query, cc.clientName);
+      const matterNameScore = fuzzyScore(query, cc.matterName);
       const combinedScore = fuzzyScore(query, cc.clientName + cc.matterName);
-      const score = Math.max(clientScore, matterScore, combinedScore);
+      const codeScore = fuzzyScore(query, cc.code);
+      const clientCodeScore = fuzzyScore(query, cc.clientCode);
+      const score = Math.max(
+        clientNameScore,
+        matterNameScore,
+        combinedScore,
+        codeScore,
+        clientCodeScore
+      );
       return { ...cc, score };
     })
     .filter((cc) => cc.score > 15)

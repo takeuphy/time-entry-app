@@ -66,7 +66,7 @@ export default function Home() {
             href="/case-codes"
             className="text-xs text-blue-600 hover:text-blue-800 bg-blue-50 px-2 py-1 rounded"
           >
-            ケースコード管理
+            マターコード管理
           </a>
         </div>
       </header>

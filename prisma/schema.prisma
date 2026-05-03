@@ -30,7 +30,10 @@ model Setting {
 model CaseCode {
   id         Int      @id @default(autoincrement())
   code       String   @unique
+  clientCode String   @default("")
   clientName String
   matterName String
   createdAt  DateTime @default(now())
+
+  @@index([clientCode])
 }
