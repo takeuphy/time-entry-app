@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef, useCallback } from "react";
 import { VoiceInput } from "./VoiceInput";
 
 interface EntryFormProps {
@@ -202,6 +202,7 @@ export function EntryForm({ onEntryAdded }: EntryFormProps) {
   const [success, setSuccess] = useState(false);
   const [suggestions, setSuggestions] = useState<CaseCodeSuggestion[]>([]);
   const [searching, setSearching] = useState(false);
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const searchCaseCodes = async (query: string) => {
     if (!query.trim()) {
@@ -221,6 +222,21 @@ export function EntryForm({ onEntryAdded }: EntryFormProps) {
     } finally {
       setSearching(false);
     }
+  };
+
+  const debouncedSearch = useCallback((query: string) => {
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    debounceRef.current = setTimeout(() => searchCaseCodes(query), 300);
+  }, []);
+
+  const handleClientChange = (value: string) => {
+    setClientName(value);
+    debouncedSearch(value);
+  };
+
+  const handleMatterChange = (value: string) => {
+    setMatterName(value);
+    debouncedSearch(value);
   };
 
   const handleClientVoice = (text: string) => {
@@ -343,7 +359,7 @@ export function EntryForm({ onEntryAdded }: EntryFormProps) {
           <input
             type="text"
             value={clientName}
-            onChange={(e) => setClientName(e.target.value)}
+            onChange={(e) => handleClientChange(e.target.value)}
             placeholder="例: ABC株式会社"
             className="flex-1 rounded-lg border border-gray-300 px-3 py-2 text-base focus:outline-none focus:ring-2 focus:ring-blue-500"
           />
@@ -360,7 +376,7 @@ export function EntryForm({ onEntryAdded }: EntryFormProps) {
           <input
             type="text"
             value={matterName}
-            onChange={(e) => setMatterName(e.target.value)}
+            onChange={(e) => handleMatterChange(e.target.value)}
             placeholder="例: M&A案件"
             className="flex-1 rounded-lg border border-gray-300 px-3 py-2 text-base focus:outline-none focus:ring-2 focus:ring-blue-500"
           />
