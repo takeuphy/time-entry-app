@@ -26,7 +26,7 @@ export async function GET(request: NextRequest) {
       );
       return { ...cc, score };
     })
-    .filter((cc) => cc.score > 15)
+    .filter((cc) => cc.score > 40)
     .sort((a, b) => {
       const aSuffix = a.code.substring(5);
       const bSuffix = b.code.substring(5);
@@ -80,12 +80,7 @@ function fuzzyScore(query: string, target: string): number {
     return similarity * 70;
   }
 
-  // Single character overlap as last resort
-  let charMatches = 0;
-  for (const c of q) {
-    if (t.includes(c)) charMatches++;
-  }
-  return (charMatches / q.length) * 40;
+  return 0;
 }
 
 /**
