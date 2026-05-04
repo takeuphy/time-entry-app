@@ -62,12 +62,23 @@ export default function Home() {
             <h1 className="text-2xl font-bold">タイムエントリー</h1>
             <p className="text-sm text-gray-500 mt-1">{today}</p>
           </div>
-          <a
-            href="/case-codes"
-            className="text-xs text-blue-600 hover:text-blue-800 bg-blue-50 px-2 py-1 rounded"
-          >
-            マターコード管理
-          </a>
+          <div className="flex items-center gap-2">
+            <a
+              href="/case-codes"
+              className="text-xs text-blue-600 hover:text-blue-800 bg-blue-50 px-2 py-1 rounded"
+            >
+              マターコード管理
+            </a>
+            <button
+              onClick={async () => {
+                await fetch("/api/auth", { method: "DELETE" });
+                window.location.href = "/login";
+              }}
+              className="text-xs text-gray-400 hover:text-gray-600 px-2 py-1"
+            >
+              ログアウト
+            </button>
+          </div>
         </div>
       </header>
 
