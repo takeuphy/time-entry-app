@@ -28,9 +28,8 @@ export async function GET(request: NextRequest) {
     })
     .filter((cc) => cc.score > 40)
     .sort((a, b) => {
-      const aSuffix = a.code.substring(5);
-      const bSuffix = b.code.substring(5);
-      return bSuffix.localeCompare(aSuffix);
+      if (b.score !== a.score) return b.score - a.score;
+      return b.code.substring(5).localeCompare(a.code.substring(5));
     })
     .slice(0, 10);
 
