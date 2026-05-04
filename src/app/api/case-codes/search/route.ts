@@ -27,7 +27,11 @@ export async function GET(request: NextRequest) {
       return { ...cc, score };
     })
     .filter((cc) => cc.score > 15)
-    .sort((a, b) => b.score - a.score)
+    .sort((a, b) => {
+      const aSuffix = a.code.substring(5);
+      const bSuffix = b.code.substring(5);
+      return bSuffix.localeCompare(aSuffix);
+    })
     .slice(0, 10);
 
   return NextResponse.json(scored);
