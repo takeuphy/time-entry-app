@@ -4,6 +4,7 @@ interface TimeEntry {
   id: number;
   clientName: string;
   matterName: string;
+  caseCode?: string;
   date: string;
   startTime: string;
   endTime: string;
@@ -60,6 +61,7 @@ export async function sendDailyReport(
       totalMinutes += dur;
       return `
       <tr>
+        <td style="border:1px solid #ddd;padding:8px;font-family:monospace;font-size:12px;">${e.caseCode || ""}</td>
         <td style="border:1px solid #ddd;padding:8px;">${e.clientName}</td>
         <td style="border:1px solid #ddd;padding:8px;">${e.matterName}</td>
         <td style="border:1px solid #ddd;padding:8px;white-space:nowrap;">${e.startTime} - ${e.endTime}</td>
@@ -81,6 +83,7 @@ export async function sendDailyReport(
         <table style="border-collapse:collapse;width:100%;font-size:14px;">
           <thead>
             <tr style="background:#f5f5f5;">
+              <th style="border:1px solid #ddd;padding:8px;text-align:left;">マターコード</th>
               <th style="border:1px solid #ddd;padding:8px;text-align:left;">クライアント</th>
               <th style="border:1px solid #ddd;padding:8px;text-align:left;">案件</th>
               <th style="border:1px solid #ddd;padding:8px;text-align:left;">時間</th>
@@ -91,7 +94,7 @@ export async function sendDailyReport(
           <tbody>${entryRows}</tbody>
           <tfoot>
             <tr style="background:#f5f5f5;font-weight:bold;">
-              <td colspan="3" style="border:1px solid #ddd;padding:8px;text-align:right;">合計</td>
+              <td colspan="4" style="border:1px solid #ddd;padding:8px;text-align:right;">合計</td>
               <td style="border:1px solid #ddd;padding:8px;text-align:right;">${formatDecimalHours(totalMinutes)}h (${formatDuration(totalMinutes)})</td>
               <td style="border:1px solid #ddd;padding:8px;"></td>
             </tr>
@@ -158,6 +161,7 @@ export async function sendAutoReport(
         totalMinutesAll += dur;
         return `
         <tr>
+          <td style="border:1px solid #ddd;padding:8px;font-family:monospace;font-size:12px;">${e.caseCode || ""}</td>
           <td style="border:1px solid #ddd;padding:8px;">${e.clientName}</td>
           <td style="border:1px solid #ddd;padding:8px;">${e.matterName}</td>
           <td style="border:1px solid #ddd;padding:8px;white-space:nowrap;">${e.startTime} - ${e.endTime}</td>
@@ -174,6 +178,7 @@ export async function sendAutoReport(
       <table style="border-collapse:collapse;width:100%;font-size:14px;">
         <thead>
           <tr style="background:#f5f5f5;">
+            <th style="border:1px solid #ddd;padding:8px;text-align:left;">マターコード</th>
             <th style="border:1px solid #ddd;padding:8px;text-align:left;">クライアント</th>
             <th style="border:1px solid #ddd;padding:8px;text-align:left;">案件</th>
             <th style="border:1px solid #ddd;padding:8px;text-align:left;">時間</th>

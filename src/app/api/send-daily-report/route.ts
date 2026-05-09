@@ -16,10 +16,21 @@ export async function POST(request: NextRequest) {
       request.nextUrl.searchParams.get("date") || yesterdayString();
     const email = request.nextUrl.searchParams.get("email") || undefined;
 
-    const entries = await prisma.timeEntry.findMany({
-      where: { date },
-      orderBy: { startTime: "asc" },
-    });
+    const [rawEntries, caseCodes] = await Promise.all([
+      prisma.timeEntry.findMany({
+        where: { date },
+        orderBy: { startTime: "asc" },
+      }),
+      prisma.caseCode.findMany(),
+    ]);
+
+    const codeMap = new Map(
+      caseCodes.map((cc) => [`${cc.clientName}\t${cc.matterName}`, cc.code])
+    );
+    const entries = rawEntries.map((e) => ({
+      ...e,
+      caseCode: codeMap.get(`${e.clientName}\t${e.matterName}`) || "",
+    }));
 
     await sendDailyReport(entries, date, email);
 

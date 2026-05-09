@@ -45,15 +45,26 @@ export async function POST(request: NextRequest) {
     const end = new Date();
     const start = new Date(end.getTime() - 24 * 60 * 60 * 1000);
 
-    const entries = await prisma.timeEntry.findMany({
-      where: {
-        createdAt: {
-          gte: start,
-          lt: end,
+    const [rawEntries, caseCodes] = await Promise.all([
+      prisma.timeEntry.findMany({
+        where: {
+          createdAt: {
+            gte: start,
+            lt: end,
+          },
         },
-      },
-      orderBy: [{ date: "asc" }, { startTime: "asc" }],
-    });
+        orderBy: [{ date: "asc" }, { startTime: "asc" }],
+      }),
+      prisma.caseCode.findMany(),
+    ]);
+
+    const codeMap = new Map(
+      caseCodes.map((cc) => [`${cc.clientName}\t${cc.matterName}`, cc.code])
+    );
+    const entries = rawEntries.map((e) => ({
+      ...e,
+      caseCode: codeMap.get(`${e.clientName}\t${e.matterName}`) || "",
+    }));
 
     if (entries.length === 0) {
       return NextResponse.json({
